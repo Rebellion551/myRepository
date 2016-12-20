@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.1.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.1.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.1.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.1.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.1.xsd">
+
+	<!-- spring 读取类路径下的资源文件 -->
+	<util:properties id="propertiesReader" location="classpath:jdbc.properties" />
+
+	<!-- 组件扫描器:自动把指定包下的类实例化为Bean -->
+	<context:component-scan base-package="com.**.dao,com.**.service" />
+  <!--
+  <bean id="carService" class="com.ssmo.service.CarService">
+    <property name="carMapper" ref="carMapper" />
+  </bean>
+  -->
+
+	<!-- 数据源配置 -> DB -->
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"
+		destroy-method="close">
+		<property name="driverClass" value="#{propertiesReader[driver]}" />
+		<property name="jdbcUrl" value="#{propertiesReader[url]}" />
+		<property name="user" value="#{propertiesReader[username]}" />
+		<property name="password" value="#{propertiesReader[password]}" />
+
+		<!-- 连接池中保留的最小的连接数 -->
+		<property name="minPoolSize" value="2" />
+		<!-- 连接池中保留的最大的连接数 默认15个 -->
+		<property name="maxPoolSize" value="20" />
+		<!-- 连接池中一开始就得到整个数量的连接数 -->
+		<property name="initialPoolSize" value="6" />
+		<!-- 连接池中的连接耗尽的时候 c3p0 一次同时生成几个连接 -->
+		<property name="acquireIncrement" value="2" />
+		<!-- 最大空间时间 120秒内没有使用的连接 给我关掉 -->
+		<property name="maxIdleTime" value="120" />
+	</bean>
+
+	<!-- mybatis -->
+	<!-- sqlSessionFactory -> 数据源配置 -> DB -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+
+		<!-- 该配置文件用来指定Mapper映射文件的位置 ， 如果映射文件与相应的接口同名，且在同一路径下， 那么可以不配置该选项 -->
+		<!-- 配置 sql语句映射文件路径 -->
+		<!-- <property name="mapperLocations" value="classpath*:com/**/dao/*.xml" 
+			/> -->
+
+		<!-- 该属性用来指定MyBatis的XML配置文件路径, 跟Spring整合时，编写MyBatis映射文件的目的无非是配置 一下typeAlias、setting之类的 
+			元素。不用在其中指定数据源，或者事务处理方式。 就算配置了也会被忽略。因为这些都是使用Spring中的配置 。 当然如果你不打算添加typeAlias 
+			之类的设置的话，你连MyBatis的配置文件都不用写， 更不用配置这个属性了 -->
+		<!-- 指定mybatis总配置文件地址 -->
+		<!-- <property name="configLocation" value="classpath:mybatis-config.xml" 
+			/> -->
+	</bean>
+
+	<!-- 配置Mapper(DAO)接口的自动扫描 -->
+	<!-- mapper -> sqlSessionFactory -> 数据源配置 -> DB -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<!-- 指定扫描 dao 接口的顶级包：** 表示任意多级 *表示任意内容的一级，多个以逗号或分号间隔。 -->
+		<property name="basePackage" value="com.**.dao" />
+	</bean>
+
+	<!-- 配置事务管理 ********************************** -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="add*" propagation="REQUIRED" isolation="DEFAULT" />
+			<tx:method name="modify*" propagation="REQUIRED" />
+			<tx:method name="remove*" propagation="REQUIRED" />
+			<tx:method name="*" propagation="NOT_SUPPORTED" read-only="true" />
+		</tx:attributes>
+	</tx:advice>
+
+	<aop:config>
+		<aop:pointcut expression="execution(* com.**.service.*.*(..))"
+			id="methods" />
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="methods" />
+	</aop:config>
+
+</beans>
+
+
+
+
